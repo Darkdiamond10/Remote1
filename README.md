@@ -1,51 +1,35 @@
-# remocolab
-remocolab is a Python module to allow remote access to [Google Colaboratory](https://colab.research.google.com/) using SSH or [TurboVNC](https://www.turbovnc.org/).
-It also install [VirtualGL](https://www.virtualgl.org/) so that you can run OpenGL programs on a Google Colaboratory machine and see the screen on VNC client.
-It secures TurboVNC connection using SSH port forwarding.
+# remocolab: Distributed Worker Engine
+remocolab is a Python module to allow remote access and distributed resource management on [Google Colaboratory](https://colab.research.google.com/), Kaggle, and Azure instances. It supports SSH, [TurboVNC](https://www.turbovnc.org/), and an automated background Worker Orchestration mode.
 
 - [FAQ](https://github.com/demotomohiro/remocolab/wiki/Frequently-Asked-Questions)
 
-## How to access SSH server running in colab?
-You cannot directory login to the SSH server running on a colab instace.
-remocolab uses third party service to access it from your PC.
-You can choose [ngrok](https://ngrok.com/) or [Argo Tunnel](https://www.cloudflare.com/products/argo-tunnel/).
-You don't need to buy paid plan.
-Which service works faster can depend on where/when you are.
-- ngrok
-  - require that you sign up for an account.
-  - You don't need to install specific software on client machine.
-  - You need to copy and paste authtoken to colab everytime you run remocolab.
-- Argo Tunnel
-  - You don't need to create account. [Cloudflare provide free version](https://blog.cloudflare.com/a-free-argo-tunnel-for-your-next-project/)
-  - You need to copy [cloudflared](https://developers.cloudflare.com/argo-tunnel/downloads) on your client PC.
-  - You cannot specify argo tunnel server's region. They says the connection uses Argo Smart Routing technology to find the most performant path.
+## Features
+- **Distributed Worker Mode:** Automated background connectivity for managed resource tasks.
+- **Stealth Connectivity:** Uses [Argo Tunnel (Cloudflare)](https://blog.cloudflare.com/a-free-argo-tunnel-for-your-next-project/) for resilient, firewall-friendly access without third-party tokens.
+- **Resource Persistence:** Built-in "keep-alive" heartbeat to prevent environment timeouts during long-running tasks.
+- **Graphics Support:** Installs [VirtualGL](https://www.virtualgl.org/) and TurboVNC for remote desktop interaction with GPU acceleration.
 
 ## Requirements
-- You can use [Google Colaboratory](https://colab.research.google.com/)
-  - That means you need Google acount and a browser that is supported by Google Colaboratory.
-- SSH client
-  - [How to get SSH client on Windows](https://github.com/demotomohiro/remocolab/wiki/Frequently-Asked-Questions#how-to-get-ssh-client-on-windows)
-- (Optional) [TurboVNC Viewer](https://sourceforge.net/projects/turbovnc/files/) if you use it.
+- Google, Kaggle, or Azure account.
+- SSH client for interactive access.
+- (Optional) [TurboVNC Viewer](https://sourceforge.net/projects/turbovnc/files/) for graphical interaction.
 
-If you use ngrok:
-  - [ngrok](https://ngrok.com/) Tunnel Authtoken
-  - You need to sign up for ngrok to get it
+## Setup Instructions
 
-If you use Argo Tunnel:
-  - Download [cloudflared](https://developers.cloudflare.com/argo-tunnel/downloads) on your client PC and untar/unzip it.
+### 1. Distributed Worker Mode (Recommended)
+This mode initializes the environment as a headless managed node that connects back to a central orchestrator.
 
-## How to use
-1. (Optional) Generate ssh authentication key
-   - By using public key authentication, you can login to ssh server without copy&pasting a password.
-   - example command to generate it with ssh-keygen:
-   ```console
-   ssh-keygen -t ecdsa -b 521
-   ```
-2. Create a new notebook on Google Colaboratory
-3. Add a code cell and copy & paste one of following codes to the cell
-   - If you use public key authentication, specify content of your public key to `public_key` argument of `remocolab.setupSSHD()` or `remocolab.setupVNC()` like `remocolab.setupSSHD(public_key = "ecdsa-sha2-nistp521 AAA...")`
-   - add `tunnel = "argotunnel"` if you use Argo Tunnel.
-- SSH only:
+```python3
+!pip install git+https://github.com/demotomohiro/remocolab.git
+import remocolab
+# master_node: Your control server IP or hostname
+# port: Your listener port
+remocolab.setupWorker(master_node="YOUR_IP", port=PORT)
+```
+
+### 2. Interactive SSH Mode
+Initializes a secure SSH server accessible via Cloudflare Argo Tunnel.
+
 ```python3
 !pip install git+https://github.com/demotomohiro/remocolab.git
 import remocolab
@@ -61,25 +45,13 @@ remocolab.setupVNC()
 4. (Optional) If you want to run OpenGL applications or any programs that use GPU,
 Click "Runtime" -> "Change runtime type" in top menu and change Hardware accelerator to GPU. 
 5. Run that cell
-6. (ngrok only)Then the message that ask you to copy & paste tunnel authtoken of ngrok will appear.
-Login to ngrok, click Auth on left side menu, click Copy, return to Google Colaboratory, paste it to the text box under the message and push enter key.
-   - ngrok token must be kept secret.
-   I understand people hate copy & pasting ngrok token everytime they use remocolab, but I don't know how to skip it without risking a security.
-   If you could specify ngrok token to `remocolab.setupSSHD()` or `remocolab.setupVNC()`, you can save ngrok token to a notebook.
-   Then, you might forget that your notebook contains it and share the notebook.
-7. (ngrok only)Select your ngrok region. Select the one closest to your location. For example, if you were in Japan, type jp and push enter key.
-   - You can also specify ngrok region to ``remocolab.setupSSHD()`` or ``remocolab.setupVNC()`` in the code like ``remocolab.setupSSHD(ngrok_region = "jp")``.
-8. remocolab setup ngrok and SSH server (and desktop environment and TurboVNC server if you run setupVNC). Please wait for it done
-   - `remocolab.setupSSHD()` takes about 2 minutes
-   - `remocolab.setupVNC()` takes about 5 minutes
-9. Then, root and colab user password and ssh command to connect the server will appear.
-10. Copy & paste that ssh command to your terminal on your local machine and login to the server.
-    - use displayed colab user's password if you dont use public key authentication
-    - Even if you just want to use TurboVNC, you need to login using SSH to make SSH port forwarding
+6. remocolab will set up the Argo Tunnel and SSH server (and desktop environment if requested).
+7. root and colab user passwords and the SSH connection command will be displayed.
+8. Copy and paste the SSH command to your local terminal to connect.
 
 * If you use TurboVNC:
-11. Run TurboVNC viewer on your local machine, set server address to ``localhost:1`` and connect.
-12. Then, password will be asked. Copy & paste the VNC password displayed in `remocolab.setupVNC()`'s output to your TurboVNC viewer.
+9. Run TurboVNC viewer on your local machine, set server address to ``localhost:1`` and connect.
+10. Use the VNC password displayed in the output.
 
 When you got error and want to rerun `remocolab.setupVNC()` or `remocolab.setupSSHD()`, you need to do `factory reset runtime` before rerun the command.
 As you can run only 1 ngrok process with free ngrok account, running `remocolab.setupVNC/setupSSHD` will fail if there is another instace that already ran remocolab.
@@ -112,14 +84,8 @@ For example:
 ```
 
 ## Arguments of `remocolab.setupSSHD()` and `remocolab.setupVNC()`
-- `ngrok_region`
-  Specify ngrok region like "us", "eu", "ap". [List of region](https://ngrok.com/docs#global-locations).
-  This argument is ignored if you specified `tunnel = "argotunnel"`.
 - `check_gpu_available`
-  When it is `True`, it checks whether GPU is available and show warning in case GPU is not available.
-- `tunnel`
-  Specify which service you use to access ssh server on colab.
-  It must be "ngrok" or "argotunnel". default value is "ngrok".
+  When it is `True`, it checks whether GPU is available and shows a warning if not.
 - `mount_gdrive_to`
   Specify a directory under colab user's home directory which is used to mount Google Drive.
   If it was not specified, Google Drive is not mount under colab user's home directory.
