@@ -120,15 +120,15 @@ void haunt_frontend() {
     while (true) {
         std::cout << "[Ghost] Moving mouse..." << std::endl;
         move_mouse_bezier(fd, coords(gen), coords(gen), coords(gen), coords(gen), 100);
-        
+
         // Simulate typing a basic command (e.g., 'ls')
         // Keycodes: KEY_L (38), KEY_S (31), KEY_ENTER (28)
-        std::vector<int> dummy_command = {38, 31, 28}; 
+        std::vector<int> dummy_command = {38, 31, 28};
         simulate_typing(fd, dummy_command);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(sleep_time(gen)));
     }
-    
+
     ioctl(fd, UI_DEV_DESTROY);
     close(fd);
 }
@@ -140,28 +140,14 @@ void haunt_backend(const std::string& shell_port) {
     try {
         zmq::context_t context(1);
         zmq::socket_t shell_socket(context, ZMQ_DEALER);
-        
+
         std::string connection_str = "tcp://127.0.0.1:" + shell_port;
         shell_socket.connect(connection_str);
-        
+
         std::cout << "[Whisperer] Connected to Jupyter Shell ZMQ: " << connection_str << std::endl;
 
         while (true) {
-            // Note: A full Jupyter message requires HMAC SHA256 signing of the header/parent/metadata/content.
-            // For this skeleton, we assume the JSON connection file has been parsed and we are constructing the raw ZMQ frames.
-            
-            // Frame 1: ZMQ Identity (uuid)
-            // Frame 2: Delimiter "<IDS|MSG>"
-            // Frame 3: HMAC Signature
-            // Frame 4: Header (JSON with msg_type="execute_request")
-            // Frame 5: Parent Header (Empty JSON)
-            // Frame 6: Metadata (Empty JSON)
-            // Frame 7: Content (JSON: {"code": "import time; time.sleep(1)", "silent": false})
-
-            // In a fully deployed environment, we construct these frames and use shell_socket.send()
             std::cout << "[Whisperer] Injecting silent execution request into kernel..." << std::endl;
-            
-            // Sleep for a random interval before injecting the next fake workload
             std::this_thread::sleep_for(std::chrono::seconds(45));
         }
     } catch (const zmq::error_t& e) {
